@@ -1,6 +1,6 @@
 import logging
 from fastmcp import FastMCP
-from sqlalchemy import select, func
+from sqlalchemy import select, func,text
 
 from src.database import get_db_context
 from src.models import (
@@ -11,7 +11,8 @@ from src.models import (
     FilmCategory,
     FilmActor,
     Rental,
-    Inventory
+    Inventory,
+    Payment
 )
 
 logger = logging.getLogger(__name__)
@@ -225,4 +226,63 @@ async def get_actor_film_count(limit: int = 15) -> str:
                 "name": f"{a.first_name} {a.last_name}",
                 "total_films": a.total_films
             } for a in actors
+        ])
+    
+
+
+@mcp.tool
+async def get_top_categories_by_revenue(limit: int = 10) -> str:
+    """Categorías con mayores ingresos"""
+    async with get_db_context() as session:
+        result = await session.execute(
+            select(
+                Category.name,
+                func.sum(Payment.amount).label("revenue")
+            )
+            .join(FilmCategory, FilmCategory.category_id == Category.category_id)
+            .join(Film, Film.film_id == FilmCategory.film_id)
+            .join(Inventory, Inventory.film_id == Film.film_id)
+            .join(Rental, Rental.inventory_id == Inventory.inventory_id)
+            .join(Payment, Payment.rental_id == Rental.rental_id)
+            .group_by(Category.name)
+            .order_by(func.sum(Payment.amount).desc())
+            .limit(limit)
+        )
+
+        rows = result.all()
+        return str([
+            {"category": r.name, "revenue": float(r.revenue)}
+            for r in rows
+        ])
+
+
+@mcp.tool
+async def list_tables() -> str:
+    """Lista las tablas disponibles en la base de datos"""
+    async with get_db_context() as session:
+        result = await session.execute(
+            text("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            """)
+        )
+        return str(result.scalars().all())
+
+
+@mcp.tool
+async def list_columns(table_name: str) -> str:
+    """Lista las columnas de una tabla"""
+    async with get_db_context() as session:
+        result = await session.execute(
+            text("""
+            SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_name = :table
+            """),
+            {"table": table_name}
+        )
+        return str([
+            {"column": row.column_name, "type": row.data_type}
+            for row in result
         ])
