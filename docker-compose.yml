@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  mcp_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pagila_mcp_server
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:ecologia@host.docker.internal:5432/pagila
+      POOL_SIZE: 20
+      DATABASE_ECHO: "False"
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./src:/app/src
+    stdin_open: true
+    tty: true
