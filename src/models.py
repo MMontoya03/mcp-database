@@ -1,3 +1,5 @@
+#Se define modelo racional de pagila usando ORM lo que per
+#mite trabajar con entidades como actor, film etc 
 from sqlalchemy import (
     Column,
     Integer,
